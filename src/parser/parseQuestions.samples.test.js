@@ -131,6 +131,50 @@ D. answer
 E. answer
 F. answer`,
   },
+  {
+    name: 'repair PDF-reversed agile versus waterfall answer lines',
+    expectedQuestions: 1,
+    expectedValidQuestions: 1,
+    expectedAnswerCount: 5,
+    text: `שאלה מספר :3
+מהו המשפט הנכון בהשוואה של פיתוח אגילי אל מול פיתוח מבוסס מפל מים
+להשתנות צפוי שלא מראש קבוע מפרט עם למוצר יותר מתאים מים מפל מסוג פיתוח .א
+טוב יותר תיעוד נוצר אגילי בפיתוח .ב
+הפרויקט ותקציב משך את טוב יותר לחזות ניתן אגילי בפיתוח .ג
+הפרויקט צוות חברי בין יותר טוב קשר יש מים מפל מסוג בפיתוח .ד
+שגויות האחרות התשובות כל .ה`,
+    assert(result) {
+      const [question] = result.questions
+      return (
+        question.answers[0].text.startsWith('פיתוח מסוג מפל מים מתאים') &&
+        question.answers[2].text.startsWith('בפיתוח אגילי ניתן לחזות') &&
+        question.answers[2].text.endsWith('משך ותקציב הפרויקט') &&
+        question.answers[3].text.startsWith('בפיתוח מסוג מפל מים')
+      )
+    },
+  },
+  {
+    name: 'repair additional PDF-reversed software process answer lines',
+    expectedQuestions: 1,
+    expectedValidQuestions: 1,
+    expectedAnswerCount: 5,
+    text: `שאלה מספר :4
+כיצד הסעיף הבא במנשר האגילי מתבצע בפועל בשיטה האגילית
+הצגות קצרות ופיתוח זמני .א
+מהלקוחות שמגיעים שינויים מתעדף Scrum Master הסקראם מנהל .ב
+שינויים לנהל זמן יש ולכן קצר התיעוד תהליך .ג
+המיידיים הלקוח צרכי עפ"י עובדים קבועה תוכנית אין .ד
+שגויות האחרות התשובות כל .ה`,
+    assert(result) {
+      const [question] = result.questions
+      return (
+        question.answers[0].text.startsWith('זמני') &&
+        question.answers[1].text.startsWith('מנהל הסקראם Scrum Master') &&
+        question.answers[2].text.startsWith('תהליך התיעוד קצר') &&
+        question.answers[3].text.startsWith('אין תוכנית קבועה')
+      )
+    },
+  },
 ]
 
 export function runParserSampleTests() {

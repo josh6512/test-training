@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'exam-practice-state'
-export const CURRENT_EXAM_STORAGE_VERSION = 'parser-rtl-cleanup-v3'
+export const CURRENT_EXAM_STORAGE_VERSION = 'pdf-rtl-extraction-v7'
 
 export function loadStoredExam() {
   if (typeof window === 'undefined') {

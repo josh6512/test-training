@@ -14,22 +14,44 @@ function textItemsToLines(items) {
     }
 
     const itemY = Math.round(item.transform?.[5] ?? 0)
+    const itemX = item.transform?.[4] ?? 0
     const startsNewLine = currentY !== null && Math.abs(itemY - currentY) > 2
 
     if (startsNewLine) {
-      lines.push(currentLine.join(' ').trim())
+      lines.push(lineItemsToText(currentLine))
       currentLine = []
     }
 
-    currentLine.push(item.str)
+    currentLine.push({
+      text: item.str,
+      x: itemX,
+    })
     currentY = itemY
   })
 
   if (currentLine.length > 0) {
-    lines.push(currentLine.join(' ').trim())
+    lines.push(lineItemsToText(currentLine))
   }
 
   return lines.filter(Boolean)
+}
+
+function countHebrewChars(text) {
+  return [...text].filter((char) => /[\u0590-\u05ff]/u.test(char)).length
+}
+
+function countLatinChars(text) {
+  return [...text].filter((char) => /[A-Za-z]/.test(char)).length
+}
+
+function lineItemsToText(lineItems) {
+  const rawText = lineItems.map((item) => item.text).join(' ')
+  const isRtlLine = countHebrewChars(rawText) > countLatinChars(rawText)
+  const sortedItems = [...lineItems].sort((first, second) =>
+    isRtlLine ? second.x - first.x : first.x - second.x,
+  )
+
+  return sortedItems.map((item) => item.text).join(' ').replace(/\s+/g, ' ').trim()
 }
 
 export async function extractPdfText(file) {

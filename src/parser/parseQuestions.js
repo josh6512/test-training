@@ -26,6 +26,152 @@ function isPunctuationToken(token) {
   return /^[.,:;!?()[\]{}"'״׳-]+$/u.test(token)
 }
 
+function isHebrewToken(token) {
+  return /\p{Script=Hebrew}/u.test(token)
+}
+
+function isLatinToken(token) {
+  return /^[A-Za-z][A-Za-z0-9_:/.-]*$/u.test(token)
+}
+
+function getHebrewTokens(tokens) {
+  return tokens.filter(isHebrewToken)
+}
+
+const likelyHebrewSentenceStarts = new Set([
+  'מה',
+  'מהו',
+  'מהי',
+  'מי',
+  'איזה',
+  'איזו',
+  'כיצד',
+  'למה',
+  'מדוע',
+  'האם',
+  'כל',
+  'אין',
+  'יש',
+  'פיתוח',
+  'בפיתוח',
+  'תהליך',
+  'מנהל',
+  'זמני',
+  'משתמשים',
+  'לתעדף',
+  'לדון',
+  'לבצע',
+  'נוצר',
+  'ניתן',
+])
+
+const unlikelyHebrewSentenceStarts = new Set([
+  'של',
+  'את',
+  'הספרינט',
+  'הבא',
+  'הפרויקט',
+  'הלקוחות',
+  'שינויים',
+  'תיעוד',
+  'קבוע',
+  'מפרט',
+  'התנהגות',
+  'שגויות',
+  'עצמים',
+  'תבניות',
+])
+
+function normalizeHebrewToken(token) {
+  return token.replace(/^[^\p{Script=Hebrew}]+|[^\p{Script=Hebrew}]+$/gu, '')
+}
+
+function startsWithHebrewPrefix(token, prefixes) {
+  return prefixes.some((prefix) => token.startsWith(prefix) && token.length > prefix.length + 1)
+}
+
+function scoreHebrewWordOrder(tokens) {
+  const hebrewTokens = getHebrewTokens(tokens).map(normalizeHebrewToken).filter(Boolean)
+
+  if (hebrewTokens.length < 3) {
+    return 0
+  }
+
+  const first = hebrewTokens[0]
+  const second = hebrewTokens[1] ?? ''
+  const last = hebrewTokens.at(-1)
+  let score = 0
+
+  if (likelyHebrewSentenceStarts.has(first)) score += 5
+  if (unlikelyHebrewSentenceStarts.has(first)) score -= 5
+  if (likelyHebrewSentenceStarts.has(last)) score -= 4
+  if (unlikelyHebrewSentenceStarts.has(last)) score += 2
+  if (startsWithHebrewPrefix(first, ['ב', 'ל']) && !unlikelyHebrewSentenceStarts.has(first)) score += 1
+  if (first === 'את' || first === 'של') score -= 4
+  if (second === 'את' || second === 'של') score += 1
+  if (hebrewTokens.includes('את') && hebrewTokens.indexOf('את') < hebrewTokens.length - 1) score += 1
+
+  return score
+}
+
+function shouldRepairPdfRtlWordOrder(line) {
+  const tokens = line.split(/\s+/u).filter(Boolean)
+  const hebrewTokens = getHebrewTokens(tokens)
+
+  if (hebrewTokens.length < 3) {
+    return false
+  }
+
+  const { remaining, trailing } = splitTrailingLatinPhrase(tokens)
+  const originalScore = scoreHebrewWordOrder(tokens)
+  const repairedScore = scoreHebrewWordOrder([...remaining].reverse().concat(trailing))
+
+  return repairedScore >= originalScore + 3
+}
+
+function splitTrailingLatinPhrase(tokens) {
+  const trailing = []
+  const remaining = [...tokens]
+
+  while (remaining.length > 0 && isLatinToken(remaining.at(-1))) {
+    trailing.unshift(remaining.pop())
+  }
+
+  return {
+    remaining,
+    trailing,
+  }
+}
+
+function repairPdfRtlWordOrder(line) {
+  const tokens = line.split(/\s+/u).filter(Boolean)
+  const { remaining, trailing } = splitTrailingLatinPhrase(tokens)
+  const groups = []
+  let latinGroup = []
+
+  remaining.forEach((token) => {
+    if (isLatinToken(token)) {
+      latinGroup.push(token)
+      return
+    }
+
+    if (latinGroup.length > 0) {
+      groups.push(latinGroup.join(' '))
+      latinGroup = []
+    }
+
+    groups.push(token)
+  })
+
+  if (latinGroup.length > 0) {
+    groups.push(latinGroup.join(' '))
+  }
+
+  return [...groups.reverse(), ...trailing]
+    .join(' ')
+    .replace(/(^|\s)([בלכמ])\s+([A-Za-z])/gu, '$1$2-$3')
+}
+
 function restoreRtlWordOrder(line) {
   const cleanedLine = compactLine(line)
 
@@ -33,7 +179,7 @@ function restoreRtlWordOrder(line) {
     return ''
   }
 
-  return cleanedLine
+  const punctuationCleanedLine = cleanedLine
     .replace(/^[?.]+\s*/u, '')
     .replace(/^\.\s+/u, '')
     .replace(/^[:;]\s*(?=\p{Script=Hebrew}|\p{Script=Latin})/u, '')
@@ -41,6 +187,10 @@ function restoreRtlWordOrder(line) {
     .replace(/\s+([:;,.!?])\s+/gu, '$1 ')
     .replace(/\s*-\s*/gu, '-')
     .trim()
+
+  return shouldRepairPdfRtlWordOrder(punctuationCleanedLine)
+    ? repairPdfRtlWordOrder(punctuationCleanedLine)
+    : punctuationCleanedLine
 }
 
 function cleanDisplayText(text) {
