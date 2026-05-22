@@ -114,6 +114,46 @@ const steps = [
   { id: 'results', label: 'תוצאות' },
 ]
 
+function shuffleArray(items) {
+  const shuffled = [...items]
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+
+  return shuffled
+}
+
+const hebrewDisplayLabels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח']
+const englishDisplayLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+
+function getAnswerLabelFamily(answers) {
+  return answers.some((answer) => /^[A-Z]$/i.test(answer.label)) ? 'english' : 'hebrew'
+}
+
+function getDisplayLabel(labels, index) {
+  return labels[index] ?? String(index + 1)
+}
+
+function createPracticeQuestions(sourceQuestions) {
+  return sourceQuestions.map((question) => ({
+    ...question,
+    answers: shuffleArray(question.answers).map((answer, index) => {
+      const labels =
+        getAnswerLabelFamily(question.answers) === 'english'
+          ? englishDisplayLabels
+          : hebrewDisplayLabels
+
+      return {
+        ...answer,
+        originalLabel: answer.originalLabel ?? answer.label,
+        displayLabel: getDisplayLabel(labels, index),
+      }
+    }),
+  }))
+}
+
 function App() {
   const loadedStoredExam = loadStoredExam()
   const storedExam =
@@ -131,6 +171,7 @@ function App() {
   )
   const [parseDiagnostics, setParseDiagnostics] = useState(storedExam?.diagnostics ?? null)
   const [examAnswers, setExamAnswers] = useState({})
+  const [practiceQuestions, setPracticeQuestions] = useState([])
 
   useEffect(() => {
     if (!currentFileId || questions.length === 0) {
@@ -149,7 +190,7 @@ function App() {
 
   const results = useMemo(
     () =>
-      questions.map((question) => {
+      practiceQuestions.map((question) => {
         const selectedAnswerId = examAnswers[question.id]
         const selectedAnswer = question.answers.find((answer) => answer.id === selectedAnswerId) ?? null
         const correctAnswer = question.answers.find((answer) => answer.isCorrect) ?? null
@@ -168,7 +209,7 @@ function App() {
           status,
         }
       }),
-    [examAnswers, questions],
+    [examAnswers, practiceQuestions],
   )
 
   const resultSummary = useMemo(() => {
@@ -194,6 +235,7 @@ function App() {
     setRawExamText('')
     setParseDiagnostics(null)
     setExamAnswers({})
+    setPracticeQuestions([])
     setScreen('preview')
   }
 
@@ -204,6 +246,7 @@ function App() {
     setRawExamText(rawText)
     setParseDiagnostics(null)
     setExamAnswers({})
+    setPracticeQuestions([])
     clearStoredExam()
     setScreen('upload')
   }
@@ -218,11 +261,13 @@ function App() {
     setCurrentFileName(fileName)
     setParseDiagnostics(diagnostics)
     setExamAnswers({})
+    setPracticeQuestions([])
     setScreen('preview')
   }
 
   const startPractice = () => {
     setExamAnswers({})
+    setPracticeQuestions(createPracticeQuestions(questions))
     setScreen('practice')
   }
 
@@ -281,7 +326,7 @@ function App() {
 
       {screen === 'practice' && (
         <ExamRunner
-          questions={questions}
+          questions={practiceQuestions}
           selectedAnswers={examAnswers}
           onAnswerChange={updateExamAnswer}
           onBack={() => setScreen('preview')}

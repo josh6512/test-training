@@ -78,7 +78,7 @@ function ExamRunner({ questions, selectedAnswers, onAnswerChange, onBack, onFini
                 checked={selectedAnswerId === answer.id}
                 onChange={() => selectAnswer(answer.id)}
               />
-              <span className="answer-label">{answer.label}</span>
+              <span className="answer-label">{answer.displayLabel ?? answer.label}</span>
               <span>{answer.text}</span>
             </label>
           ))}

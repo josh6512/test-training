@@ -58,11 +58,15 @@ function ResultsView({ results, summary, onEdit, onRestart }) {
 
               <div className="result-detail">
                 <strong>התשובה שלך:</strong>{' '}
-                {selectedAnswer ? `${selectedAnswer.label}. ${selectedAnswer.text}` : 'לא נבחרה תשובה'}
+                {selectedAnswer
+                  ? `${selectedAnswer.displayLabel ?? selectedAnswer.label}. ${selectedAnswer.text}`
+                  : 'לא נבחרה תשובה'}
               </div>
               <div className="result-detail">
                 <strong>התשובה הנכונה:</strong>{' '}
-                {correctAnswer ? `${correctAnswer.label}. ${correctAnswer.text}` : 'לא הוגדרה'}
+                {correctAnswer
+                  ? `${correctAnswer.displayLabel ?? correctAnswer.label}. ${correctAnswer.text}`
+                  : 'לא הוגדרה'}
               </div>
 
               {question.answers.map((answer) => {
@@ -77,7 +81,7 @@ function ResultsView({ results, summary, onEdit, onRestart }) {
 
                 return (
                   <div className={className} key={answer.id}>
-                    <span className="answer-label">{answer.label}</span>
+                    <span className="answer-label">{answer.displayLabel ?? answer.label}</span>
                     <span>{answer.text}</span>
                     <span className="muted">
                       {answer.isCorrect ? 'התשובה הנכונה' : isSelected ? 'נבחרה' : ''}
