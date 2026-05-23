@@ -139,7 +139,10 @@ function getDisplayLabel(labels, index) {
 function createPracticeQuestions(sourceQuestions) {
   return sourceQuestions.map((question) => ({
     ...question,
-    answers: shuffleArray(question.answers).map((answer, index) => {
+    answers: (question.media?.some((media) => media.role === 'question-options-crop')
+      ? question.answers
+      : shuffleArray(question.answers)
+    ).map((answer, index) => {
       const labels =
         getAnswerLabelFamily(question.answers) === 'english'
           ? englishDisplayLabels
@@ -169,7 +172,6 @@ function App() {
   const [rawExamText, setRawExamText] = useState(() =>
     typeof storedExam?.rawText === 'string' && storedExam.fileId ? storedExam.rawText : '',
   )
-  const [parseDiagnostics, setParseDiagnostics] = useState(storedExam?.diagnostics ?? null)
   const [examAnswers, setExamAnswers] = useState({})
   const [practiceQuestions, setPracticeQuestions] = useState([])
 
@@ -184,9 +186,8 @@ function App() {
       parserVersion: CURRENT_EXAM_STORAGE_VERSION,
       questions,
       rawText: rawExamText,
-      diagnostics: parseDiagnostics,
     })
-  }, [currentFileId, currentFileName, parseDiagnostics, questions, rawExamText])
+  }, [currentFileId, currentFileName, questions, rawExamText])
 
   const results = useMemo(
     () =>
@@ -233,7 +234,6 @@ function App() {
     setCurrentFileName('')
     setQuestions(mockQuestions)
     setRawExamText('')
-    setParseDiagnostics(null)
     setExamAnswers({})
     setPracticeQuestions([])
     setScreen('preview')
@@ -244,14 +244,13 @@ function App() {
     setCurrentFileName(fileName)
     setQuestions([])
     setRawExamText(rawText)
-    setParseDiagnostics(null)
     setExamAnswers({})
     setPracticeQuestions([])
     clearStoredExam()
     setScreen('upload')
   }
 
-  const openParsedExam = ({ fileId, fileName, questions: parsedQuestions, rawText, diagnostics }) => {
+  const openParsedExam = ({ fileId, fileName, questions: parsedQuestions, rawText }) => {
     if (fileId !== currentFileId) {
       return
     }
@@ -259,7 +258,6 @@ function App() {
     setQuestions(parsedQuestions)
     setRawExamText(rawText)
     setCurrentFileName(fileName)
-    setParseDiagnostics(diagnostics)
     setExamAnswers({})
     setPracticeQuestions([])
     setScreen('preview')
@@ -315,7 +313,6 @@ function App() {
 
       {screen === 'preview' && (
         <ParsePreview
-          diagnostics={parseDiagnostics}
           questions={questions}
           onBack={() => setScreen('upload')}
           onStartPractice={startPractice}

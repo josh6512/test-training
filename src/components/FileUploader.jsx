@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { attachVisualAnswerMedia } from '../parser/attachVisualAnswerMedia'
 import { extractDocxText } from '../parser/extractDocxText'
 import { extractPdfText } from '../parser/extractPdfText'
 import { normalizeText } from '../parser/normalizeText'
@@ -24,6 +25,76 @@ function getFileKind(file) {
   return null
 }
 
+function getQuestionShapeSnapshot(questions) {
+  return {
+    questionCount: questions.length,
+    questionsWithZeroAnswers: questions.filter((question) => question.answers.length === 0).length,
+    questionsWithOneAnswer: questions.filter((question) => question.answers.length === 1).length,
+    questionsWithTwoOrMoreAnswers: questions.filter((question) => question.answers.length >= 2).length,
+    answersWithEmptyText: questions.reduce(
+      (total, question) => total + question.answers.filter((answer) => answer.text.trim().length === 0).length,
+      0,
+    ),
+    answersWithMedia: questions.reduce(
+      (total, question) => total + question.answers.filter((answer) => answer.media).length,
+      0,
+    ),
+  }
+}
+
+function validateVisualMediaInvariant(beforeQuestions, afterQuestions) {
+  const errors = []
+
+  if (beforeQuestions.length !== afterQuestions.length) {
+    errors.push(`question-count ${beforeQuestions.length} -> ${afterQuestions.length}`)
+  }
+
+  beforeQuestions.forEach((beforeQuestion, questionIndex) => {
+    const afterQuestion = afterQuestions[questionIndex]
+
+    if (!afterQuestion) {
+      errors.push(`missing question at index ${questionIndex}`)
+      return
+    }
+
+    if (beforeQuestion.id !== afterQuestion.id) {
+      errors.push(`question id changed at index ${questionIndex}`)
+    }
+
+    if (beforeQuestion.answers.length !== afterQuestion.answers.length) {
+      errors.push(
+        `answer-count q${beforeQuestion.number} ${beforeQuestion.answers.length} -> ${afterQuestion.answers.length}`,
+      )
+    }
+
+    beforeQuestion.answers.forEach((beforeAnswer, answerIndex) => {
+      const afterAnswer = afterQuestion.answers[answerIndex]
+
+      if (!afterAnswer) {
+        errors.push(`missing answer q${beforeQuestion.number} index ${answerIndex}`)
+        return
+      }
+
+      if (beforeAnswer.id !== afterAnswer.id) errors.push(`answer id changed q${beforeQuestion.number}`)
+      if (beforeAnswer.label !== afterAnswer.label) errors.push(`answer label changed q${beforeQuestion.number}`)
+      if (beforeAnswer.text !== afterAnswer.text) errors.push(`answer text changed q${beforeQuestion.number}`)
+      if (beforeAnswer.isCorrect !== afterAnswer.isCorrect) {
+        errors.push(`answer correctness changed q${beforeQuestion.number}`)
+      }
+    })
+  })
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    before: getQuestionShapeSnapshot(beforeQuestions),
+    after: getQuestionShapeSnapshot(afterQuestions),
+    answerTextRemovedAfterVisualProcessing:
+      getQuestionShapeSnapshot(afterQuestions).answersWithEmptyText -
+      getQuestionShapeSnapshot(beforeQuestions).answersWithEmptyText,
+  }
+}
+
 function FileUploader({
   currentFileId,
   onNewFileSelected,
@@ -35,8 +106,8 @@ function FileUploader({
   const [fileName, setFileName] = useState('')
   const [rawText, setRawText] = useState(initialRawText)
   const [error, setError] = useState('')
-  const [diagnostics, setDiagnostics] = useState(null)
   const [isExtracting, setIsExtracting] = useState(false)
+  const [pdfPages, setPdfPages] = useState([])
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0]
@@ -45,7 +116,7 @@ function FileUploader({
     setSelectedFileId(nextFileId)
     setRawText('')
     setError('')
-    setDiagnostics(null)
+    setPdfPages([])
     setFileName(file?.name ?? '')
     onNewFileSelected({ fileId: nextFileId, fileName: file?.name ?? '', rawText: '' })
 
@@ -63,9 +134,12 @@ function FileUploader({
     setIsExtracting(true)
 
     try {
-      const extractedText =
+      const extractedResult =
         fileKind === 'pdf' ? await extractPdfText(file) : await extractDocxText(file)
+      const extractedText =
+        typeof extractedResult === 'string' ? extractedResult : extractedResult.rawText
       const normalizedText = normalizeText(extractedText)
+      setPdfPages(typeof extractedResult === 'string' ? [] : extractedResult.pages)
       setRawText(normalizedText)
       onNewFileSelected({
         fileId: nextFileId,
@@ -80,15 +154,23 @@ function FileUploader({
     }
   }
 
-  const handleParseText = () => {
+  const handleParseText = async () => {
     const textForCurrentFile = rawText
-    const { questions: parsedQuestions, diagnostics: nextDiagnostics } = parseExamText(
-      textForCurrentFile,
-      { debug: true },
-    )
-    setDiagnostics(nextDiagnostics)
+    const { questions: parsedQuestions } = parseExamText(textForCurrentFile, { debug: true })
+    const {
+      questions: questionsWithMedia,
+      diagnostics: visualDiagnostics,
+    } = await attachVisualAnswerMedia(parsedQuestions, pdfPages)
+    const visualInvariant = validateVisualMediaInvariant(parsedQuestions, questionsWithMedia)
+    const safeQuestions = visualInvariant.ok ? questionsWithMedia : parsedQuestions
+    if (!visualInvariant.ok) {
+      console.error('Visual media changed parser output. Reverting to parsed questions.', visualInvariant)
+    } else {
+      console.log('Parser counts before/after visual media', visualInvariant)
+      console.log('Visual media diagnostics', visualDiagnostics)
+    }
 
-    if (parsedQuestions.length === 0) {
+    if (safeQuestions.length === 0) {
       setError('לא זוהו שאלות מהמבחן. אפשר לבדוק את הטקסט הגולמי או להשתמש בעריכה ידנית.')
       return
     }
@@ -97,9 +179,8 @@ function FileUploader({
     onParsedQuestions({
       fileId: selectedFileId,
       fileName,
-      questions: parsedQuestions,
+      questions: safeQuestions,
       rawText: textForCurrentFile,
-      diagnostics: nextDiagnostics,
     })
   }
 
@@ -153,121 +234,6 @@ function FileUploader({
         <div className="error-box" role="alert">
           {error}
         </div>
-      )}
-
-      {diagnostics && (
-        <section className="diagnostics-panel" aria-labelledby="diagnostics-title">
-          <h3 id="diagnostics-title">אבחון פענוח</h3>
-          <dl>
-            <div>
-              <dt>אורך טקסט גולמי</dt>
-              <dd>{diagnostics.rawTextLength}</dd>
-            </div>
-            <div>
-              <dt>שורות אחרי ניקוי</dt>
-              <dd>{diagnostics.cleanedLinesCount}</dd>
-            </div>
-            <div>
-              <dt>מצב פענוח</dt>
-              <dd>{diagnostics.parsingMode ?? 'לא נקבע'}</dd>
-            </div>
-            <div>
-              <dt>מועמדי שאלות</dt>
-              <dd>{diagnostics.questionStartCandidatesCount}</dd>
-            </div>
-            <div>
-              <dt>תחילות שאושרו</dt>
-              <dd>{diagnostics.acceptedQuestionStartsCount}</dd>
-            </div>
-            <div>
-              <dt>מועמדי תשובות</dt>
-              <dd>{diagnostics.answerMarkerCandidatesCount}</dd>
-            </div>
-            <div>
-              <dt>שאלות שזוהו</dt>
-              <dd>{diagnostics.parsedQuestions}</dd>
-            </div>
-            <div>
-              <dt>שאלות תקינות</dt>
-              <dd>{diagnostics.validQuestions}</dd>
-            </div>
-            <div>
-              <dt>ביטחון נמוך</dt>
-              <dd>{diagnostics.lowConfidenceQuestions}</dd>
-            </div>
-            <div>
-              <dt>תשובות עם סימון שאלה</dt>
-              <dd>{diagnostics.answersContainingQuestionMarkersCount ?? 0}</dd>
-            </div>
-            <div>
-              <dt>מספרי שאלות</dt>
-              <dd>
-                {diagnostics.detectedQuestionNumbers.length > 0
-                  ? diagnostics.detectedQuestionNumbers.join(', ')
-                  : 'אין'}
-              </dd>
-            </div>
-          </dl>
-          {diagnostics.suspiciousQuestionBlocks.length > 0 && (
-            <div className="suspicious-blocks">
-              <h4>בלוקים חשודים</h4>
-              {diagnostics.suspiciousQuestionBlocks.map((block) => (
-                <article
-                  key={`${block.questionNumber}-${block.startLineNumber}`}
-                  className="suspicious-block"
-                >
-                  <strong>
-                    שאלה {block.questionNumber}, {block.answerCount} תשובות
-                  </strong>
-                  <pre>{block.preview}</pre>
-                </article>
-              ))}
-            </div>
-          )}
-          <div className="parser-debug-grid">
-            <section>
-              <h4>80 שורות נקיות ראשונות</h4>
-              <ol>
-                {(diagnostics.firstCleanedLines ?? []).map((line) => (
-                  <li key={line.lineNumber}>
-                    <span>{line.lineNumber}</span>
-                    <code>{line.text}</code>
-                  </li>
-                ))}
-              </ol>
-            </section>
-
-            <section>
-              <h4>שורות עם סימון שאלה אפשרי</h4>
-              <ol>
-                {(diagnostics.questionStartCandidates ?? []).map((candidate) => (
-                  <li key={`${candidate.lineNumber}-${candidate.candidateIndex}`}>
-                    <span>{candidate.lineNumber}</span>
-                    <code>{candidate.text}</code>
-                    <small>
-                      {candidate.accepted
-                        ? `זוהתה כשאלה ${candidate.questionNumber}`
-                        : `נדחתה: ${candidate.reason}`}
-                    </small>
-                  </li>
-                ))}
-              </ol>
-            </section>
-
-            <section>
-              <h4>שורות עם סימון תשובה אפשרי</h4>
-              <ol>
-                {(diagnostics.possibleAnswerMarkerLines ?? []).map((line) => (
-                  <li key={line.lineNumber}>
-                    <span>{line.lineNumber}</span>
-                    <code>{line.text}</code>
-                    <small>תשובה {line.label}</small>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          </div>
-        </section>
       )}
 
       <section className="debug-panel" aria-labelledby="debug-title">

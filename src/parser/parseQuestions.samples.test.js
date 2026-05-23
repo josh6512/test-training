@@ -107,6 +107,40 @@ question
 ד. answer`,
   },
   {
+    name: 'ignore numeric instructions before real English numeric question',
+    expectedQuestions: 1,
+    expectedValidQuestions: 1,
+    expectedAnswerCount: 4,
+    text: `.1 משך הבחינה
+.2 חומר עזר
+.1 question text
+A. answer
+B. answer
+C. answer
+D. answer`,
+  },
+  {
+    name: 'keep visual or code answer options with dot-before English labels',
+    expectedQuestions: 1,
+    expectedValidQuestions: 1,
+    expectedAnswerCount: 5,
+    text: `.5 question with visual answer options
+.A
+.B
+.C
+.D
+E. all other answers are incorrect`,
+    assert(result) {
+      const [question] = result.questions
+      return (
+        question.answers.slice(0, 4).every((answer) => answer.text === '') &&
+        question.answers.slice(0, 4).every((answer) => answer.warnings?.length > 0) &&
+        question.answers[4].text === 'all other answers are incorrect' &&
+        question.warnings.some((warning) => warning.includes('תמונה/קוד/טבלה/נוסחה'))
+      )
+    },
+  },
+  {
     name: 'do not treat open question sections as multiple-choice answers',
     expectedQuestions: 1,
     expectedValidQuestions: 0,

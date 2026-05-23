@@ -12,7 +12,7 @@ export const parserPatterns = {
   rtlNumberQuestion: /^\.\s*(\d{1,3})\s*(.*)$/,
 
   answerAtStart: new RegExp(
-    `^\\s*(?:\\(([${answerLetters}])\\)|([${answerLetters}])\\s*[.)-])\\s*(.*)$`,
+    `^\\s*(?:\\(([${answerLetters}])\\)|\\.\\s*([${answerLetters}])|([${answerLetters}])\\s*[.)-])\\s*(.*)$`,
   ),
   answerAtEnd: new RegExp(
     `^\\s*(.+?)\\s+(?:[.)-]\\s*([${answerLetters}])|\\(([${answerLetters}])\\))\\s*$`,

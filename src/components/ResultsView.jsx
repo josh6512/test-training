@@ -1,3 +1,9 @@
+function getQuestionMediaLabel(media) {
+  return media.role === 'question-text-crop'
+    ? 'תוכן חזותי של נוסח השאלה'
+    : 'תוכן חזותי של אפשרויות התשובה'
+}
+
 function ResultsView({ results, summary, onEdit, onRestart }) {
   return (
     <section className="screen-panel" aria-labelledby="results-title">
@@ -69,6 +75,13 @@ function ResultsView({ results, summary, onEdit, onRestart }) {
                   : 'לא הוגדרה'}
               </div>
 
+              {question.media?.map((media, index) => (
+                <div className="answer-media-preview" key={`${media.role}-${index}`}>
+                  <span>{getQuestionMediaLabel(media)}</span>
+                  <img src={media.dataUrl} alt={`${getQuestionMediaLabel(media)} בשאלה ${question.number}`} />
+                </div>
+              ))}
+
               {question.answers.map((answer) => {
                 const isSelected = selectedAnswer?.id === answer.id
                 const className = [
@@ -82,7 +95,16 @@ function ResultsView({ results, summary, onEdit, onRestart }) {
                 return (
                   <div className={className} key={answer.id}>
                     <span className="answer-label">{answer.displayLabel ?? answer.label}</span>
-                    <span>{answer.text}</span>
+                    <span>
+                      {answer.text}
+                      {answer.media && (
+                        <img
+                          className="answer-media-image"
+                          src={answer.media.dataUrl}
+                          alt={`תוכן חזותי לתשובה ${answer.displayLabel ?? answer.label}`}
+                        />
+                      )}
+                    </span>
                     <span className="muted">
                       {answer.isCorrect ? 'התשובה הנכונה' : isSelected ? 'נבחרה' : ''}
                     </span>

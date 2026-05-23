@@ -1,5 +1,11 @@
 import { useState } from 'react'
 
+function getQuestionMediaLabel(media) {
+  return media.role === 'question-text-crop'
+    ? 'תוכן חזותי של נוסח השאלה'
+    : 'תוכן חזותי של אפשרויות התשובה'
+}
+
 function ExamRunner({ questions, selectedAnswers, onAnswerChange, onBack, onFinish }) {
   const [requestedIndex, setRequestedIndex] = useState(0)
 
@@ -66,6 +72,12 @@ function ExamRunner({ questions, selectedAnswers, onAnswerChange, onBack, onFini
           <span>{currentQuestion.answers.length} תשובות</span>
         </div>
         <h3>{currentQuestion.text}</h3>
+        {currentQuestion.media?.map((media, index) => (
+          <div className="answer-media-preview" key={`${media.role}-${index}`}>
+            <span>{getQuestionMediaLabel(media)}</span>
+            <img src={media.dataUrl} alt={`${getQuestionMediaLabel(media)} בשאלה ${currentQuestion.number}`} />
+          </div>
+        ))}
         <div>
           {currentQuestion.answers.map((answer) => (
             <label
@@ -79,7 +91,16 @@ function ExamRunner({ questions, selectedAnswers, onAnswerChange, onBack, onFini
                 onChange={() => selectAnswer(answer.id)}
               />
               <span className="answer-label">{answer.displayLabel ?? answer.label}</span>
-              <span>{answer.text}</span>
+              <span>
+                {answer.text}
+                {answer.media && (
+                  <img
+                    className="answer-media-image"
+                    src={answer.media.dataUrl}
+                    alt={`תוכן חזותי לתשובה ${answer.displayLabel ?? answer.label}`}
+                  />
+                )}
+              </span>
             </label>
           ))}
         </div>

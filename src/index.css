@@ -173,22 +173,6 @@ h3 {
   font-weight: 700;
 }
 
-.preview-diagnostics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.preview-diagnostics span {
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: var(--text);
-  background: var(--panel-soft);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .upload-box {
   display: grid;
   place-items: center;
@@ -238,164 +222,6 @@ h3 {
   border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
-}
-
-.diagnostics-panel {
-  margin-top: 18px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-soft);
-}
-
-.diagnostics-panel h3 {
-  margin: 0 0 12px;
-}
-
-.diagnostics-panel dl {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.diagnostics-panel div {
-  padding: 10px;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.diagnostics-panel dt {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.diagnostics-panel dd {
-  margin: 4px 0 0;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.suspicious-blocks {
-  margin-top: 14px;
-}
-
-.suspicious-blocks h4 {
-  margin: 0 0 10px;
-}
-
-.suspicious-block {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px solid rgba(180, 35, 24, 0.24);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.suspicious-block pre {
-  margin: 8px 0 0;
-  white-space: pre-wrap;
-  font-family: Arial, 'Segoe UI', system-ui, sans-serif;
-  line-height: 1.5;
-}
-
-.diagnostics-details {
-  margin-top: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.diagnostics-details summary {
-  padding: 12px;
-  color: var(--text);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.question-diagnostics-list,
-.debug-list {
-  display: grid;
-  gap: 8px;
-  max-height: 360px;
-  margin: 0;
-  padding: 0 12px 12px;
-  overflow: auto;
-}
-
-.debug-list {
-  list-style: none;
-}
-
-.debug-list li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
-}
-
-.debug-list span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.debug-list code {
-  direction: rtl;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: Arial, 'Segoe UI', system-ui, sans-serif;
-}
-
-.parser-debug-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.parser-debug-grid section {
-  min-height: 220px;
-  max-height: 360px;
-  overflow: auto;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.parser-debug-grid h4 {
-  margin: 0 0 10px;
-}
-
-.parser-debug-grid ol {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.parser-debug-grid li {
-  display: grid;
-  gap: 4px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.parser-debug-grid span,
-.parser-debug-grid small {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.parser-debug-grid code {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: Arial, 'Segoe UI', system-ui, sans-serif;
 }
 
 .debug-header {
@@ -503,6 +329,35 @@ textarea {
 
 .answer-editor {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.answer-media-preview {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.answer-media-preview span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.answer-media-preview img,
+.answer-media-image {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.answer-media-image {
+  margin-top: 8px;
 }
 
 .answer-label {
@@ -668,11 +523,4 @@ textarea {
     flex-direction: column;
   }
 
-  .diagnostics-panel dl {
-    grid-template-columns: 1fr;
-  }
-
-  .parser-debug-grid {
-    grid-template-columns: 1fr;
-  }
 }

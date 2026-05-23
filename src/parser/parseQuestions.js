@@ -238,14 +238,18 @@ function getAnswerMatch(line) {
   const startMatch = normalizedLine.match(parserPatterns.answerAtStart)
 
   if (startMatch) {
-    const label = normalizeAnswerLabel(startMatch[1] ?? startMatch[2])
+    const label = normalizeAnswerLabel(startMatch[1] ?? startMatch[2] ?? startMatch[3])
 
     return {
       label,
       normalizedLabel: label,
-      markerType: startMatch[1] ? 'wrapped-answer-start' : 'answer-start',
+      markerType: startMatch[1]
+        ? 'wrapped-answer-start'
+        : startMatch[2]
+          ? 'dot-before-answer-start'
+          : 'answer-start',
       confidenceScore: 90,
-      text: startMatch[3] ?? '',
+      text: startMatch[4] ?? '',
     }
   }
 
@@ -566,10 +570,19 @@ function pushCurrentAnswer(answers, currentAnswer, firstAnswerId) {
     return firstAnswerId
   }
 
+  const answerText = cleanDisplayText(currentAnswer.textLines.map(compactLine).filter(Boolean).join('\n'))
+  const answerWarnings =
+    answerText.length <= 2
+      ? []
+      : []
   const answer = {
     ...currentAnswer,
-    text: cleanDisplayText(currentAnswer.textLines.map(compactLine).filter(Boolean).join('\n')),
+    text: answerText,
     isCorrect: currentAnswer.id === firstAnswerId,
+  }
+
+  if (answerWarnings.length > 0) {
+    answer.warnings = answerWarnings
   }
 
   delete answer.textLines
@@ -696,6 +709,10 @@ function parseQuestionBlock(block, blockIndex) {
   const questionText = cleanDisplayText(questionLines.map(compactLine).filter(Boolean).join('\n'))
   const sequenceStats = getAnswerSequenceStats(answers)
   const answersWithQuestionMarker = answers.filter(answerContainsQuestionMarker)
+  const answersWithEmptyText = answers.filter((answer) => answer.text.trim().length === 0)
+  const answersWithVeryShortText = answers.filter(
+    (answer) => answer.text.trim().length > 0 && answer.text.trim().length <= 2,
+  )
 
   if (!questionText) {
     warnings.push('לא זוהה טקסט שאלה לפני התשובות.')
@@ -711,6 +728,10 @@ function parseQuestionBlock(block, blockIndex) {
 
   if (answersWithQuestionMarker.length > 0) {
     warnings.push('ייתכן שהתשובה כוללת התחלה של שאלה אחרת')
+  }
+
+  if (answersWithEmptyText.length > 0 || answersWithVeryShortText.length > 0) {
+    warnings.push('ייתכן שחלק מהתשובות מופיעות כתמונה/קוד/טבלה/נוסחה שלא חולצו כטקסט.')
   }
 
   const confidence =
@@ -734,6 +755,8 @@ function parseQuestionBlock(block, blockIndex) {
       sequentialAnswerRun: sequenceStats.maxSequentialRun,
       answerFamily: sequenceStats.family,
       answerCount: answers.length,
+      emptyAnswerCount: answersWithEmptyText.length,
+      veryShortAnswerCount: answersWithVeryShortText.length,
       stoppedAtQuestionMarker,
       answerTextsContainingQuestionMarker: answersWithQuestionMarker.length,
       containsHebrewQuestionText: answers.some((answer) => /שאלה\s+מספר/.test(answer.text)),
@@ -917,6 +940,19 @@ function buildDiagnostics({
   const questionsWithMoreThanSixAnswers = parsedQuestions.filter(
     (question) => question.answers.length > 6,
   )
+  const questionsWithEmptyAnswers = parsedQuestions.filter(
+    (question) => (question.debug?.emptyAnswerCount ?? 0) > 0,
+  )
+  const questionsWithVeryShortAnswers = parsedQuestions.filter(
+    (question) => (question.debug?.veryShortAnswerCount ?? 0) > 0,
+  )
+  const questionsThatMayRequireManualCorrection = parsedQuestions.filter(
+    (question) =>
+      question.confidence !== 'high' ||
+      (question.debug?.emptyAnswerCount ?? 0) > 0 ||
+      (question.debug?.veryShortAnswerCount ?? 0) > 0 ||
+      (question.debug?.answerTextsContainingQuestionMarker ?? 0) > 0,
+  )
   const numberCounts = parsedQuestions.reduce((counts, question) => {
     counts.set(question.number, (counts.get(question.number) ?? 0) + 1)
     return counts
@@ -927,6 +963,7 @@ function buildDiagnostics({
   const sortedQuestionNumbers = [...new Set(parsedQuestions.map((question) => question.number))]
     .filter((number) => Number.isInteger(number) && number > 0)
     .sort((first, second) => first - second)
+  const detectedQuestionNumbers = parsedQuestions.map((question) => question.number)
   const missingQuestionNumbers = []
 
   if (sortedQuestionNumbers.length > 1) {
@@ -961,6 +998,8 @@ function buildDiagnostics({
       warnings,
       hasEmptyQuestionText,
       hasEmptyAnswerText,
+      emptyAnswerCount: question.debug?.emptyAnswerCount ?? 0,
+      veryShortAnswerCount: question.debug?.veryShortAnswerCount ?? 0,
       answerTextContainsHebrewQuestion: question.debug?.containsHebrewQuestionText ?? false,
       answerTextContainsEnglishQuestion: question.debug?.containsEnglishQuestionText ?? false,
       answerTextContainsQuestionMarker,
@@ -971,6 +1010,36 @@ function buildDiagnostics({
     0,
   )
   const rejectedQuestionCandidates = questionStartCandidates.filter((candidate) => !candidate.accepted)
+  const rejectedQuestionCandidateSummaries = rejectedQuestionCandidates.map((candidate) => ({
+    lineNumber: candidate.lineNumber,
+    questionNumber: candidate.questionNumber,
+    markerType: candidate.markerType,
+    reason: candidate.reason,
+    text: candidate.text,
+  }))
+  const mergedQuestionBlocks = parsedQuestions
+    .filter(
+      (question) =>
+        question.debug?.stoppedAtQuestionMarker ||
+        (question.debug?.answerTextsContainingQuestionMarker ?? 0) > 0,
+    )
+    .map((question) => ({
+      questionNumber: question.number,
+      startLineNumber: question.debug?.startLineNumber,
+      answerTextsContainingQuestionMarker: question.debug?.answerTextsContainingQuestionMarker ?? 0,
+      stoppedAtQuestionMarker: question.debug?.stoppedAtQuestionMarker ?? false,
+      preview: question.debug?.rawBlockPreview?.slice(0, 300) ?? '',
+    }))
+  const questionsPossiblySwallowedIntoPrevious = missingQuestionNumbers.map((missingNumber) => ({
+    missingNumber,
+    previousDetectedQuestionNumber: [...sortedQuestionNumbers]
+      .reverse()
+      .find((number) => number < missingNumber) ?? null,
+    nextDetectedQuestionNumber: sortedQuestionNumbers.find((number) => number > missingNumber) ?? null,
+    rejectedCandidates: rejectedQuestionCandidateSummaries.filter(
+      (candidate) => candidate.questionNumber === missingNumber,
+    ),
+  }))
   const suspiciousQuestionBlocks = lowConfidenceQuestions.map((question) => ({
     questionNumber: question.number,
     answerCount: question.answers.length,
@@ -1016,8 +1085,23 @@ function buildDiagnostics({
       number: question.number,
       answerCount: question.answers.length,
     })),
+    questionsWithEmptyAnswers: questionsWithEmptyAnswers.map((question) => ({
+      number: question.number,
+      count: question.debug?.emptyAnswerCount ?? 0,
+    })),
+    questionsWithVeryShortAnswers: questionsWithVeryShortAnswers.map((question) => ({
+      number: question.number,
+      count: question.debug?.veryShortAnswerCount ?? 0,
+    })),
+    questionsThatMayRequireManualCorrection: questionsThatMayRequireManualCorrection.map(
+      (question) => question.number,
+    ),
+    detectedQuestionNumbers,
     missingQuestionNumbers,
     duplicateQuestionNumbers,
+    rejectedQuestionCandidates: rejectedQuestionCandidateSummaries,
+    mergedQuestionBlocks,
+    questionsPossiblySwallowedIntoPrevious,
     parsingMode,
     warnings,
     questionDiagnostics,
@@ -1025,6 +1109,10 @@ function buildDiagnostics({
       ...block,
       preview: block.preview.slice(0, 300),
     })),
+  }
+
+  if (questionsWithEmptyAnswers.length > 0 || questionsWithVeryShortAnswers.length > 0) {
+    warnings.push('יש שאלות עם תשובות קצרות או ריקות שייתכן שלא חולצו מטקסט רגיל.')
   }
 
   return {
@@ -1041,11 +1129,17 @@ function buildDiagnostics({
     questionsWithOneAnswer: questionsWithOneAnswer.length,
     questionsWithTwoAnswers: questionsWithTwoAnswers.length,
     questionsWithThreeOrMoreAnswers: questionsWithThreeOrMoreAnswers.length,
+    questionsWithEmptyAnswers: questionsWithEmptyAnswers.length,
+    questionsWithVeryShortAnswers: questionsWithVeryShortAnswers.length,
+    questionsThatMayRequireManualCorrection: questionsThatMayRequireManualCorrection.length,
     missingQuestionNumbers,
     duplicateQuestionNumbers,
+    rejectedQuestionCandidateSummaries,
+    mergedQuestionBlocks,
+    questionsPossiblySwallowedIntoPrevious,
     warnings,
     parsingMode,
-    detectedQuestionNumbers: parsedQuestions.map((question) => question.number),
+    detectedQuestionNumbers,
     firstQuestionNumbers: parsedQuestions.slice(0, 5).map((question) => question.number),
     rejectedQuestionCandidates,
     questionDiagnostics,

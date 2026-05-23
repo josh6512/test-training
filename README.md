@@ -1,16 +1,44 @@
-# React + Vite
+# Exam Practice Trainer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite app for practicing multiple-choice exams. The app lets a user upload an exam file, parse questions and answers, edit the parsed exam, practice interactively, and review results.
 
-Currently, two official plugins are available:
+## Supported Uploads
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- PDF
+- DOCX / Word documents
 
-## React Compiler
+## MVP Flow
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+upload -> parse -> edit -> practice -> results
 
-## Expanding the ESLint configuration
+## Run Locally
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+The Vite dev server will print the local URL, usually `http://localhost:5173/`.
+
+## Build
+
+```bash
+npm run build
+```
+
+To test the production build locally:
+
+```bash
+npm run preview
+```
+
+## Deployment Settings
+
+- Build command: `npm run build`
+- Publish directory: `dist`
+
+## Known Limitations
+
+- Scanned PDFs may not parse without OCR.
+- Visual/code/table answers may require visual crops or manual review.
+- The first detected answer is marked correct by default unless changed by the user.

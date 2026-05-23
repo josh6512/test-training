@@ -2,6 +2,12 @@ import { createId } from '../utils/ids'
 
 const answerLabels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח']
 
+function getQuestionMediaLabel(media) {
+  return media.role === 'question-text-crop'
+    ? 'תוכן חזותי שחולץ לנוסח השאלה'
+    : 'תוכן חזותי של אפשרויות התשובה'
+}
+
 function QuestionEditor({ questions, onChange }) {
   const updateQuestions = (updater) => {
     onChange(updater(questions).map((question, index) => ({ ...question, number: index + 1 })))
@@ -24,6 +30,34 @@ function QuestionEditor({ questions, onChange }) {
               answers: question.answers.map((answer) =>
                 answer.id === answerId ? { ...answer, text } : answer,
               ),
+            }
+          : question,
+      ),
+    )
+  }
+
+  const removeAnswerMedia = (questionId, answerId) => {
+    updateQuestions(() =>
+      questions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              answers: question.answers.map((answer) =>
+                answer.id === answerId ? { ...answer, media: undefined } : answer,
+              ),
+            }
+          : question,
+      ),
+    )
+  }
+
+  const removeQuestionMedia = (questionId, mediaIndex) => {
+    updateQuestions(() =>
+      questions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              media: (question.media ?? []).filter((_, index) => index !== mediaIndex),
             }
           : question,
       ),
@@ -145,6 +179,7 @@ function QuestionEditor({ questions, onChange }) {
         {questions.map((question) => {
           const warnings = [
             ...(question.warnings ?? []),
+            ...question.answers.flatMap((answer) => answer.warnings ?? []),
             ...(question.confidence === 'low' ? ['ביטחון נמוך בזיהוי השאלה.'] : []),
             ...(question.answers.length < 3 ? ['לשאלה יש פחות משלוש תשובות.'] : []),
           ]
@@ -158,7 +193,7 @@ function QuestionEditor({ questions, onChange }) {
 
               {warnings.length > 0 && (
                 <div className="question-warnings" role="status">
-                  {warnings.map((warning) => (
+                  {[...new Set(warnings)].map((warning) => (
                     <span key={warning}>{warning}</span>
                   ))}
                 </div>
@@ -172,36 +207,80 @@ function QuestionEditor({ questions, onChange }) {
                 />
               </label>
 
+              {question.media?.map((media, index) => (
+                <div className="answer-media-preview" key={`${media.role}-${index}`}>
+                  <span>{getQuestionMediaLabel(media)}</span>
+                  <img src={media.dataUrl} alt={`${getQuestionMediaLabel(media)} בשאלה ${question.number}`} />
+                  <button
+                    type="button"
+                    className="small-danger-button"
+                    onClick={() => removeQuestionMedia(question.id, index)}
+                  >
+                    הסרת תמונה
+                  </button>
+                </div>
+              ))}
+
               <div>
-                {question.answers.map((answer) => (
-                  <div className="answer-editor" key={answer.id}>
-                    <span className="answer-label">{answer.label}</span>
-                    <input
-                      type="text"
-                      value={answer.text}
-                      aria-label={`תשובה ${answer.label} לשאלה ${question.number}`}
-                      onChange={(event) =>
-                        updateAnswerText(question.id, answer.id, event.target.value)
-                      }
-                    />
-                    <label className="correct-badge">
-                      <input
-                        type="radio"
-                        name={`correct-${question.id}`}
-                        checked={answer.isCorrect}
-                        onChange={() => markCorrectAnswer(question.id, answer.id)}
-                      />{' '}
-                      נכונה
-                    </label>
-                    <button
-                      type="button"
-                      className="small-danger-button"
-                      onClick={() => removeAnswer(question.id, answer.id)}
-                    >
-                      הסרה
-                    </button>
-                  </div>
-                ))}
+                {question.answers.map((answer) => {
+                  const hasAnswerImage = Boolean(answer.media?.dataUrl)
+                  const hasBrokenMedia = Boolean(answer.media && !answer.media.dataUrl)
+                  const hasNoAnswerContent = !hasAnswerImage && answer.text.trim().length === 0
+
+                  return (
+                    <div className="answer-editor" key={answer.id}>
+                      <span className="answer-label">{answer.label}</span>
+                      {!hasAnswerImage && (
+                        <input
+                          type="text"
+                          value={answer.text}
+                          aria-label={`תשובה ${answer.label} לשאלה ${question.number}`}
+                          onChange={(event) =>
+                            updateAnswerText(question.id, answer.id, event.target.value)
+                          }
+                        />
+                      )}
+                      <label className="correct-badge">
+                        <input
+                          type="radio"
+                          name={`correct-${question.id}`}
+                          checked={answer.isCorrect}
+                          onChange={() => markCorrectAnswer(question.id, answer.id)}
+                        />{' '}
+                        נכונה
+                      </label>
+                      <button
+                        type="button"
+                        className="small-danger-button"
+                        onClick={() => removeAnswer(question.id, answer.id)}
+                      >
+                        הסרה
+                      </button>
+                      {(hasNoAnswerContent || hasBrokenMedia) && (
+                        <div className="question-warnings answer-inline-warning" role="status">
+                          <span>
+                            {hasBrokenMedia
+                              ? 'התמונה לתשובה לא זמינה'
+                              : 'לא נמצא טקסט או תמונה לתשובה זו'}
+                          </span>
+                        </div>
+                      )}
+                      {hasAnswerImage && (
+                        <div className="answer-media-preview">
+                          <span>תוכן חזותי שחולץ לתשובה</span>
+                          <img src={answer.media.dataUrl} alt={`תוכן חזותי לתשובה ${answer.label}`} />
+                          <button
+                            type="button"
+                            className="small-danger-button"
+                            onClick={() => removeAnswerMedia(question.id, answer.id)}
+                          >
+                            הסרת תמונה
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               <div className="question-actions">
