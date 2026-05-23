@@ -11,102 +11,6 @@ import {
   saveStoredExam,
 } from './utils/storage'
 
-const mockQuestions = [
-  {
-    id: 'q-1',
-    number: 1,
-    text: 'מהו תפקידו המרכזי של React באפליקציית ווב?',
-    answers: [
-      {
-        id: 'q-1-a',
-        label: 'א',
-        text: 'בניית ממשק משתמש מרכיבים קטנים וניתנים לשימוש חוזר',
-        isCorrect: true,
-      },
-      {
-        id: 'q-1-b',
-        label: 'ב',
-        text: 'ניהול מסד נתונים בצד השרת',
-        isCorrect: false,
-      },
-      {
-        id: 'q-1-c',
-        label: 'ג',
-        text: 'המרת קבצי PDF לטקסט',
-        isCorrect: false,
-      },
-      {
-        id: 'q-1-d',
-        label: 'ד',
-        text: 'שליחת מיילים אוטומטית',
-        isCorrect: false,
-      },
-    ],
-  },
-  {
-    id: 'q-2',
-    number: 2,
-    text: 'איזו תשובה תסומן כברירת מחדל לאחר פענוח עתידי של מבחן?',
-    answers: [
-      {
-        id: 'q-2-a',
-        label: 'א',
-        text: 'התשובה הראשונה',
-        isCorrect: true,
-      },
-      {
-        id: 'q-2-b',
-        label: 'ב',
-        text: 'התשובה האחרונה',
-        isCorrect: false,
-      },
-      {
-        id: 'q-2-c',
-        label: 'ג',
-        text: 'תשובה אקראית',
-        isCorrect: false,
-      },
-      {
-        id: 'q-2-d',
-        label: 'ד',
-        text: 'אף תשובה עד שהמשתמש יבחר',
-        isCorrect: false,
-      },
-    ],
-  },
-  {
-    id: 'q-3',
-    number: 3,
-    text: 'מהו השלב שבו המשתמש יוכל לתקן ניסוח שאלות ותשובות?',
-    answers: [
-      {
-        id: 'q-3-a',
-        label: 'א',
-        text: 'מסך תצוגה מקדימה ועריכה',
-        isCorrect: true,
-      },
-      {
-        id: 'q-3-b',
-        label: 'ב',
-        text: 'מסך התוצאות בלבד',
-        isCorrect: false,
-      },
-      {
-        id: 'q-3-c',
-        label: 'ג',
-        text: 'לפני העלאת הקובץ',
-        isCorrect: false,
-      },
-      {
-        id: 'q-3-d',
-        label: 'ד',
-        text: 'רק אחרי ייצוא לקובץ חדש',
-        isCorrect: false,
-      },
-    ],
-  },
-]
-
 const steps = [
   { id: 'upload', label: 'העלאה' },
   { id: 'preview', label: 'עריכה' },
@@ -167,7 +71,7 @@ function App() {
   const [currentFileId, setCurrentFileId] = useState(storedExam?.fileId ?? '')
   const [currentFileName, setCurrentFileName] = useState(storedExam?.fileName ?? '')
   const [questions, setQuestions] = useState(() =>
-    Array.isArray(storedExam?.questions) && storedExam.fileId ? storedExam.questions : mockQuestions,
+    Array.isArray(storedExam?.questions) && storedExam.fileId ? storedExam.questions : [],
   )
   const [rawExamText, setRawExamText] = useState(() =>
     typeof storedExam?.rawText === 'string' && storedExam.fileId ? storedExam.rawText : '',
@@ -229,15 +133,6 @@ function App() {
     }
   }, [results])
 
-  const startMockFlow = () => {
-    setCurrentFileId('')
-    setCurrentFileName('')
-    setQuestions(mockQuestions)
-    setRawExamText('')
-    setExamAnswers({})
-    setPracticeQuestions([])
-    setScreen('preview')
-  }
 
   const clearCurrentExam = ({ fileId = '', fileName = '', rawText = '' } = {}) => {
     setCurrentFileId(fileId)
@@ -307,7 +202,6 @@ function App() {
           initialRawText={rawExamText}
           onNewFileSelected={clearCurrentExam}
           onParsedQuestions={openParsedExam}
-          onUseMockData={startMockFlow}
         />
       )}
 

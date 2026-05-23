@@ -98,7 +98,6 @@ function validateVisualMediaInvariant(beforeQuestions, afterQuestions) {
 function FileUploader({
   currentFileId,
   onNewFileSelected,
-  onUseMockData,
   onParsedQuestions,
   initialRawText = '',
 }) {
@@ -193,9 +192,6 @@ function FileUploader({
             ניתן להעלות קובץ PDF או DOCX ולראות את הטקסט הגולמי שחולץ ממנו.
           </p>
         </div>
-        <button type="button" className="secondary-button" onClick={onUseMockData}>
-          המשך עם שאלות לדוגמה
-        </button>
       </div>
 
       <div className="upload-box">
